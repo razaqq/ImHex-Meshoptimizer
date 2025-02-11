@@ -1,0 +1,48 @@
+name: Build
+on: [push]
+
+jobs:
+  win:
+    runs-on: windows-2022
+    name: Windows
+    env:
+      IMHEX_VERSION: master
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Conan
+        run: |
+          pip install conan
+          conan profile detect
+
+      #- name: Install SDK
+      #  id: install_sdk
+      #  uses: WerWolv/imhex-download-sdk@v1.32.2
+
+      - name: Download ImHex SDK
+        uses: actions/download-artifact@v4
+        with:
+          name: "Windows Portable x86_64"
+          repository: WerWolv/ImHex
+
+      - name: Install ImHex SDK
+        id: install_sdk
+        run: |
+          mkdir -p imhex
+          unzip Windows Portable x86_64.zip -d imhex
+          echo "sdk_path=$(pwd)/imhex/sdk" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: |
+          conan install -pr:b=./.github/conan/profiles/win-mingw-release-build -pr:h=./.github/conan/profiles/win-mingw-release --build=missing .
+          cmake --preset=conan-release
+          cmake --build --preset=conan-release
+        env:
+          IMHEX_SDK_PATH: "${{ steps.install_sdk.outputs.sdk_path }}"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: build/Release/meshoptimizer.hexplug
